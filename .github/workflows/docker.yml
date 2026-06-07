@@ -73,10 +73,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            # Alpine variant
             ${{ matrix.variant == 'alpine' && format('drew1kun/telegraf:{0}', steps.upstream.outputs.alpine_patch) || '' }}
             ${{ matrix.variant == 'alpine' && format('ghcr.io/drew1kun/telegraf:{0}', steps.upstream.outputs.alpine_patch) || '' }}
-
-            # Debian variant
             ${{ matrix.variant == 'debian' && format('drew1kun/telegraf:{0}', steps.upstream.outputs.debian_patch) || '' }}
             ${{ matrix.variant == 'debian' && format('ghcr.io/drew1kun/telegraf:{0}', steps.upstream.outputs.debian_patch) || '' }}
