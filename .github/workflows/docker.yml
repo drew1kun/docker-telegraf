@@ -71,6 +71,7 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ matrix.variant == 'alpine' && format('drew1kun/telegraf:{0}', steps.upstream.outputs.alpine_patch) || '' }}
