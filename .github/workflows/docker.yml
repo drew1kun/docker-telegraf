@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
@@ -55,16 +57,43 @@ jobs:
         run: |
           TAGS=$(regctl tag ls docker.io/library/telegraf)
 
-          ALPINE_PATCH=$(echo "$TAGS" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-alpine$' | sort -V | tail -n 1)
-          ALPINE_MINOR=$(echo "$ALPINE_PATCH" | awk -F. '{print $1"."$2"-alpine"}')
+          ALPINE_PATCH=$(echo "${TAGS}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-alpine$' | sort -V | tail -n 1)
+          ALPINE_MINOR=$(echo "${ALPINE_PATCH}" | awk -F. '{print $1"."$2"-alpine"}')
 
-          DEBIAN_PATCH=$(echo "$TAGS" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
-          DEBIAN_MINOR=$(echo "$DEBIAN_PATCH" | cut -d. -f1,2)
+          DEBIAN_PATCH=$(echo "${TAGS}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          DEBIAN_MINOR=$(echo "${DEBIAN_PATCH}" | cut -d. -f1,2)
 
-          echo "alpine_patch=$ALPINE_PATCH" >> $GITHUB_OUTPUT
-          echo "alpine_minor=$ALPINE_MINOR" >> $GITHUB_OUTPUT
-          echo "debian_patch=$DEBIAN_PATCH" >> $GITHUB_OUTPUT
-          echo "debian_minor=$DEBIAN_MINOR" >> $GITHUB_OUTPUT
+          echo "alpine_patch=${ALPINE_PATCH}" >> ${GITHUB_OUTPUT}
+          echo "alpine_minor=${ALPINE_MINOR}" >> ${GITHUB_OUTPUT}
+          echo "debian_patch=${DEBIAN_PATCH}" >> ${GITHUB_OUTPUT}
+          echo "debian_minor=${DEBIAN_MINOR}" >> ${GITHUB_OUTPUT}
+
+      - name: Compute Git version tag (rN + commit)
+        id: version
+        run: |
+          git fetch --tags
+
+          # extract upstream version from your resolved output
+          PREFIX=${{ steps.upstream.outputs.debian_patch }}
+
+          LAST=$(git tag --list "${PREFIX}-r*" | sed -E "s/.*-r([0-9]+)-.*/\1/" | sort -n | tail -n 1)
+
+          if [ -z "${LAST}" ]; then
+            REV=0
+          else
+            REV=$((LAST + 1))
+          fi
+
+          SHA_SHORT=$(git rev-parse --short HEAD)
+
+          TAG="${PREFIX}-r${REV}-${SHA_SHORT}"
+
+          echo "tag=${TAG}" >> ${GITHUB_OUTPUT}
+
+      - name: Create and push git tag
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Build and Push
         uses: docker/build-push-action@v6
