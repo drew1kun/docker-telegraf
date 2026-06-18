@@ -1,0 +1,6 @@
+---
+current_telegraf_version:
+  linux_amd64: >-
+    1.39.0@sha256:9768f82ebf8bde6da0d61ba220c00161750740c3e322b507a5982b89bbfca99a
+  linux_arm64_v8: >-
+    1.39.0@sha256:9768f82ebf8bde6da0d61ba220c00161750740c3e322b507a5982b89bbfca99a

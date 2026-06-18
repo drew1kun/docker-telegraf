@@ -1,0 +1,140 @@
+---
+name: Build and Push Multi-Variant Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - version.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docker-build
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install regctl
+        run: |
+          curl -L https://github.com/regclient/regclient/releases/latest/download/regctl-linux-amd64 \
+            -o /usr/local/bin/regctl
+          chmod +x /usr/local/bin/regctl
+
+      - name: Resolve upstream Telegraf tags
+        id: upstream
+        run: |
+          TAGS=$(regctl tag ls docker.io/library/telegraf)
+
+          DEBIAN_PATCH=$(echo "${TAGS}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+
+          echo "debian_patch=${DEBIAN_PATCH}" >> ${GITHUB_OUTPUT}
+
+      - name: Compute Git version tag (rN + commit)
+        id: version
+        run: |
+          git fetch --tags
+
+          PREFIX="${{ steps.upstream.outputs.debian_patch }}"
+
+          LAST=$(git tag --list "${PREFIX}-r*" | sed -E 's/.*-r([0-9]+)-.*/\1/' | sort -n | tail -n 1)
+
+          if [ -z "${LAST}" ]; then
+            REV=0
+          else
+            REV=$((LAST + 1))
+          fi
+
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          TAG="${PREFIX}-r${REV}-${SHA_SHORT}"
+
+          echo "tag=${TAG}" >> ${GITHUB_OUTPUT}
+
+      - name: Create and push git tag
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+  build:
+    needs: tag
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - dockerfile: alpine.Dockerfile
+            variant: alpine
+          - dockerfile: debian.Dockerfile
+            variant: debian
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          version: latest
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Install regctl
+        run: |
+          curl -L https://github.com/regclient/regclient/releases/latest/download/regctl-linux-amd64 \
+            -o /usr/local/bin/regctl
+          chmod +x /usr/local/bin/regctl
+
+      - name: Resolve upstream Telegraf tags
+        id: upstream
+        run: |
+          TAGS=$(regctl tag ls docker.io/library/telegraf)
+
+          ALPINE_PATCH=$(echo "${TAGS}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-alpine$' | sort -V | tail -n 1)
+          ALPINE_MINOR=$(echo "${ALPINE_PATCH}" | awk -F. '{print $1"."$2"-alpine"}')
+
+          DEBIAN_PATCH=$(echo "${TAGS}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          DEBIAN_MINOR=$(echo "${DEBIAN_PATCH}" | cut -d. -f1,2)
+
+          echo "alpine_patch=${ALPINE_PATCH}" >> ${GITHUB_OUTPUT}
+          echo "alpine_minor=${ALPINE_MINOR}" >> ${GITHUB_OUTPUT}
+          echo "debian_patch=${DEBIAN_PATCH}" >> ${GITHUB_OUTPUT}
+          echo "debian_minor=${DEBIAN_MINOR}" >> ${GITHUB_OUTPUT}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ matrix.variant == 'alpine' && format('drew1kun/telegraf:{0}', steps.upstream.outputs.alpine_patch) || '' }}
+            ${{ matrix.variant == 'alpine' && format('ghcr.io/drew1kun/telegraf:{0}', steps.upstream.outputs.alpine_patch) || '' }}
+            ${{ matrix.variant == 'debian' && format('drew1kun/telegraf:{0}', steps.upstream.outputs.debian_patch) || '' }}
+            ${{ matrix.variant == 'debian' && format('ghcr.io/drew1kun/telegraf:{0}', steps.upstream.outputs.debian_patch) || '' }}
