@@ -2,6 +2,8 @@
 
 This repo contais code for building custom Telegraf with Smartctl pre-installed. It is being used in custom telegraf Umbrel-app for monitoring devices with umbrelOS.
 
+See: [drew1kun/umbrel-apps](https://github.com/drew1kun/umbrel-apps/)
+
 ### Build new image
 
 The build process is handled by github actions and does auto-tagging the docker images according to the upstream version.
