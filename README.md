@@ -16,6 +16,7 @@ Any changes done to repo are being ignored by CI unless the `versions.yml` file 
 
 ```bash
 git commit -S -m "Bumped image version"
+git push
 ```
 
 PROFIT
