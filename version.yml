@@ -1,6 +1,14 @@
 ---
-current_upstream_telegraf_version:
-  linux_amd64: >-
-    1.39.2@sha256:49899960eccad39415b91cf654324f0bb7efddaef8f1aa3ec24e2d8c6e19618e
-  linux_arm64_v8: >-
-    1.39.2@sha256:49899960eccad39415b91cf654324f0bb7efddaef8f1aa3ec24e2d8c6e19618e
+upstream_telegraf_version:
+  linux_amd64_arm64_v8:
+    - debian:
+        tag: 1.39.2
+        digest: sha256:49899960eccad39415b91cf654324f0bb7efddaef8f1aa3ec24e2d8c6e19618e
+        url: >-
+          https://hub.docker.com/layers/library/telegraf/1.39.2/images/sha256-a4ed235aa676a0d930630285d2ef68ee0abf138849c78b73429f182600dd3eb1
+
+    - alpine:
+        tag: 1.39.2-alpine
+        digest: sha256:cd926aecf11809ffe1b6125a752dd22a4336e150f061bcc202f74b46b785817d
+        url: >-
+          https://hub.docker.com/layers/library/telegraf/1.39.2-alpine/images/sha256-088aca5e52342053d32f9ca07bbfae07bf6be09c9b17a798fb3342350a7d91e6
